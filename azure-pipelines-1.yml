@@ -1,0 +1,44 @@
+trigger:
+  enabled: false
+stages:
+- stage: __default
+  jobs:
+  - job: build_image
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - task: AdvancedSecurity-Codeql-Init@1
+      inputs:
+        languages: 'javascript'
+    - task: AdvancedSecurity-Dependency-Scanning@1
+    - task: AdvancedSecurity-Codeql-Analyze@1
+    - task: MicrosoftSecurityDevOps@1
+      displayName: "Microsoft Security DevOps"
+    - task: AzureResourceManagerTemplateDeployment@3
+      inputs:
+        deploymentScope: 'Resource Group'
+        azureResourceManagerConnection: 'CyberSecSOC(d1d8779d-38d7-4f06-91db-9cbc8de0176f)'
+        subscriptionId: '7e13a144-e02e-4340-aed9-27256d322782'
+        action: 'Create Or Update Resource Group'
+        resourceGroupName: 'DevOpsSecurity'
+        location: 'East US'
+        templateLocation: 'Linked artifact'
+        csmFile: 'storageaccount.json'
+        deploymentMode: 'Incremental'
+    - task: Docker@2
+      inputs:
+        containerRegistry: 'GHAS-2A'
+        repository: 'vulnerablecontainer'
+        command: 'buildAndPush'
+        Dockerfile: '**/Dockerfile'
+    - task: KubernetesManifest@1
+      inputs:
+        action: 'deploy'
+        connectionType: 'kubernetesServiceConnection'
+        kubernetesServiceConnection: 'K8S-2'
+        namespace: 'vulnerableinstance'
+        manifests: 'deploy/deploy.yml'
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.x'
+        addToPath: true
